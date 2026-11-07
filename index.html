@@ -64,11 +64,17 @@ window.FBX={site:location.origin+location.pathname.replace(/index\.html$/,''),
   .then(function(){out.write=Date.now()-t0;return withTimeout(F.getDocsFromServer(F.collection(fs,'objects')),15000)})
   .then(function(q){out.objects=q.size;return withTimeout(F.getDocsFromServer(F.collection(fs,'expenses')),15000)})
   .then(function(q){out.expenses=q.size;return {ok:true,text:'✓ Связь с облачной базой есть ('+out.write+' мс). В облаке: объектов '+out.objects+', расходов '+out.expenses+'.'}})
-  .catch(function(e){return {ok:false,text:'✗ '+msg(e)+(e&&e.code?' ['+e.code+']':'')}})},
+  .catch(function(e){var base='✗ '+msg(e)+(e&&e.code?' ['+e.code+']':'');return probe().then(function(d){return {ok:false,text:base+' — '+d}})})},
  sync:function(){var off=navigator.onLine===false;return{role:ROLE,pend:PEND,pw:ST.pw,cache:ST.cache,off:off,err:ST.err||'',text:ST.err?'⚠ Ошибка базы: '+ST.err:off?'⚠ Нет интернета — изменения сохранятся на устройстве и уйдут в облако позже':(PEND>0||ST.pw)?'⏳ Отправляю изменения в облако…':ST.cache===false?'☁ Синхронизировано с облаком':'… Подключаюсь к облаку'}},
  flush:function(){return withTimeout(F.waitForPendingWrites(fs),120000).then(function(){return true},function(e){report(e);return false})},
  resetLink:function(){try{localStorage.removeItem(LK);localStorage.removeItem(LD)}catch(e){}F.signOut(auth).then(function(){location.reload()},function(){location.reload()})}};
 
+function probe(){return withTimeout(fetch('https://firestore.googleapis.com/v1/projects/'+CFG.projectId+'/databases/(default)/documents/meta/ping?key='+CFG.apiKey),12000).then(function(r){return r.text().then(function(t){
+ if(/does not exist/i.test(t))return 'Диагноз: в проекте нет базы с ID «(default)». Создайте базу Firestore (Native mode) с ID (default).';
+ if(/Datastore Mode|datastore mode/i.test(t))return 'Диагноз: база создана в режиме Datastore. Нужна база в режиме Native (Firestore Native mode).';
+ if(/has not been used|is disabled|SERVICE_DISABLED/i.test(t))return 'Диагноз: в проекте выключен Cloud Firestore API — включите его в Google Cloud.';
+ if(r.status==403||r.status==401||r.status==404)return 'База существует и доступна по сети (ответ '+r.status+'). Вероятно, мешает соединение для приложения: попробуйте другой интернет (мобильный/Wi-Fi), отключите VPN/блокировщик.';
+ return 'Ответ базы: '+r.status+' '+t.slice(0,160)})},function(){return 'Диагноз: это устройство не может соединиться с firestore.googleapis.com (интернет, VPN, блокировщик или фильтр сети).'})}
 function withTimeout(p,ms){return Promise.race([p,new Promise(function(_,no){setTimeout(function(){no({code:'timeout'})},ms)})])}
 
 function startLink(){
@@ -550,7 +556,7 @@ const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 07.11-32';
+const VER='версия 07.11-33';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
