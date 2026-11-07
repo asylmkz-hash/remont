@@ -54,7 +54,9 @@ var HEAD='<h1 style="margin:0 0 6px">Ремонт — учёт</h1>';
 
 var done=false,resolveReady,ready=new Promise(function(r){resolveReady=r});
 var ROLE=null,ME=null,INFO={};
-function go(role,me,info){if(done)return;done=true;ROLE=role;ME=me;INFO=info||{};window.FBROLE=role;window.FBLINK=INFO;ungate();resolveReady()}
+function go(role,me,info){if(done)return;done=true;ROLE=role;ME=me;INFO=info||{};window.FBROLE=role;window.FBLINK=INFO;ungate();resolveReady();
+ var sp=role=='o'?'objects':role=='b'?'zayavki/'+me+'/items':'sup/'+me+'/items';try{F.onSnapshot(F.collection(fs,sp),{includeMetadataChanges:true},function(q){ST.cache=q.metadata.fromCache;ST.pw=q.metadata.hasPendingWrites;stDraw()},function(e){ST.cache=true;ST.err=msg(e);stDraw()})}catch(e){}
+ window.addEventListener('online',stDraw);window.addEventListener('offline',stDraw)}
 window.FBX={site:location.origin+location.pathname.replace(/index\.html$/,''),
  get name(){return INFO.name||''},get email(){return INFO.email||''},
  signOut:function(){F.signOut(auth).then(function(){location.reload()})},
@@ -63,6 +65,7 @@ window.FBX={site:location.origin+location.pathname.replace(/index\.html$/,''),
   .then(function(q){out.objects=q.size;return withTimeout(F.getDocsFromServer(F.collection(fs,'expenses')),15000)})
   .then(function(q){out.expenses=q.size;return {ok:true,text:'✓ Связь с облачной базой есть ('+out.write+' мс). В облаке: объектов '+out.objects+', расходов '+out.expenses+'.'}})
   .catch(function(e){return {ok:false,text:'✗ '+msg(e)+(e&&e.code?' ['+e.code+']':'')}})},
+ sync:function(){var off=navigator.onLine===false;return{role:ROLE,pend:PEND,pw:ST.pw,cache:ST.cache,off:off,err:ST.err||'',text:ST.err?'⚠ Ошибка базы: '+ST.err:off?'⚠ Нет интернета — изменения сохранятся на устройстве и уйдут в облако позже':(PEND>0||ST.pw)?'⏳ Отправляю изменения в облако…':ST.cache===false?'☁ Синхронизировано с облаком':'… Подключаюсь к облаку'}},
  flush:function(){return withTimeout(F.waitForPendingWrites(fs),120000).then(function(){return true},function(e){report(e);return false})},
  resetLink:function(){try{localStorage.removeItem(LK);localStorage.removeItem(LD)}catch(e){}F.signOut(auth).then(function(){location.reload()},function(){location.reload()})}};
 
@@ -112,7 +115,8 @@ if(document.body)boot();else document.addEventListener('DOMContentLoaded',boot);
 
 /* ---------- база ---------- */
 function clean(d){return d===undefined?null:JSON.parse(JSON.stringify(d))}
-function w(p){var to=false;return new Promise(function(ok,no){
+var PEND=0,ST={cache:null,pw:false},lastSt='';function stDraw(){var t=JSON.stringify([PEND>0,ST.cache,ST.pw]);if(t!==lastSt){lastSt=t;try{if(typeof draw=='function')draw()}catch(e){}}}
+function w(p){var to=false;PEND++;stDraw();p.then(function(){PEND--;stDraw()},function(){PEND--;stDraw()});return new Promise(function(ok,no){
  var t=setTimeout(function(){to=true;ok()},navigator.onLine===false?0:2500);
  p.then(function(){clearTimeout(t);if(!to)ok()},function(e){clearTimeout(t);if(to)report(e);else no(e)})})}
 function wrapDoc(s){return{id:s.id,exists:s.exists(),data:function(){return s.data()}}}
@@ -495,6 +499,7 @@ const tok=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz2345678
 function mkLink(type,f,name){const t=tok();db.doc('links/'+t).set({type,f,on:true,name:name||'',at:Date.now()});return t}
 function offLink(t){if(t)db.doc('links/'+t).update({on:false})}
 function cpTxt(t){const ok=()=>toast('Ссылка скопирована'),fb=()=>{const i=document.createElement('textarea');i.value=t;document.body.appendChild(i);i.select();try{document.execCommand('copy');ok()}catch(e){toast('Выделите ссылку и скопируйте вручную')}i.remove()};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(ok,fb);else fb()}
+function syncChip(){const x=FBX(),s=x.sync?x.sync():{text:''},who=own?'Владелец'+(x.email?' · '+x.email:''):window.FBROLE=='s'?'Поставщик'+(x.name?': '+x.name:''):'Строитель'+(x.name?': '+x.name:'');return `<div style="font-size:12px;display:flex;justify-content:space-between;gap:8px;margin:-4px 0 8px;color:${/⚠/.test(s.text)?'var(--bad,#c92a2a)':'var(--m,#777)'}"><span>${E(who)}</span><span style="text-align:right">${E(s.text)}</span></div>`}
 function fbFoot(){const x=FBX();return `<p class=m style="margin:28px 0 90px;text-align:center">Вход по ссылке${x.name?': '+E(x.name):''} · <a onclick="FBX().resetLink()">выйти</a></p>`}
 function fbSet(){const k=offKey(),x=FBX();return `<h2>Общая база</h2><div class=card><small class=m>Данные хранятся в облачной базе Firebase и одинаковы на всех ваших устройствах. Без интернета приложение работает, изменения отправятся при подключении.</small><div class=row><small>Вы вошли: ${E(x.email||'')}</small><a onclick="FBX().signOut()">выйти</a></div><button class=g onclick="B.chk={text:'Проверяю…'};draw();FBX().check().then(r=>{B.chk=r;draw()})">Проверить связь с базой</button>${B.chk?`<small class=${B.chk.ok===false?'bad':'m'}>${E(B.chk.text)}</small>`:''}</div><div class=card><b>Распознавание фото и чатов WhatsApp</b><br><small class=m>Через ваш ключ Claude API (console.anthropic.com, оплачивается отдельно). Ключ хранится только на этом устройстве.</small><input id=akey type=password placeholder="${k?'Ключ сохранён — введите новый, чтобы заменить':'sk-ant-…'}" autocomplete=off><div class=two style="grid-template-columns:1fr 1fr"><button class=g onclick="OFFAPI.setKey($('#akey').value.trim());toast($('#akey').value.trim()?'Ключ сохранён':'Ключ удалён');$('#akey').value='';draw()">Сохранить ключ</button><button class=g onclick="OFFAPI.setKey('');toast('Ключ удалён');draw()">Удалить ключ</button></div><small class=m>${k?'✓ Ключ задан':'Ключ не задан'}</small></div>`}
 function pplFB(){return `<h2>Строители</h2><div class=card><small class=m>Каждый строитель получает свою ссылку. Аккаунт не нужен: по ссылке он видит только свои участки и заявки — без цен и денег.</small><input id=pn placeholder="Имя строителя"><input id=pp type=tel placeholder="Телефон (для WhatsApp)"><button onclick="stAdd()">+ Добавить строителя</button></div>`+S.staff.map(p=>{const L=p.tk?lnk(p.tk,'b'):'',live=p.tk&&p.on!==false;return `<div class=card><b>${E(p.label)}</b><input type=tel value="${E(p.ph||'')}" placeholder="Телефон" onchange="col('staff').doc('${p.id}').update({ph:this.value})">${live?`<input readonly value="${E(L)}" onclick="this.select()"><div class=two style="grid-template-columns:1fr 1fr">${p.ph?`<a href="https://wa.me/${wph(p.ph)}?text=${encodeURIComponent('Ваша ссылка для заявок на материалы:\n'+L+'\nОткройте её и добавьте на главный экран телефона.')}" target=_blank><button class=g>Отправить в WhatsApp</button></a>`:`<button class=g onclick="cpTxt('${E(L)}')">Скопировать</button>`}<button class=g onclick="stNew('${p.id}')">${B['sn'+p.id]?'Точно? Старая перестанет работать':'Новая ссылка'}</button></div><button class=g onclick="stOff('${p.id}')">${B['so'+p.id]?'Точно отключить доступ? Нажмите ещё раз':'Отключить доступ'}</button>`:`<small class=m>${p.tk?'Доступ отключён.':'Ссылки ещё нет.'}</small><button class=g onclick="stNew('${p.id}',1)">Создать ссылку</button>`}<small> участки:</small>${(S.meta[p.id]||[]).map(s=>`<div class=row><span>${dot(s.o)}${E(s.n)}</span><small>${E(on(s.o))}</small></div>`).join('')}<input id="sn_${p.id}" placeholder="Название участка"><select id="so_${p.id}">${S.obj.filter(o=>!o.arch).map(o=>`<option value=${o.id}>${E(o.name)}</option>`).join('')}</select><button class=g onclick="addS('${p.id}')">+ Участок</button></div>`}).join('')}
@@ -544,8 +549,8 @@ function spSend(id){const x=spR(id);if(!x)return;if(x.lines.some(l=>!(+l.p))&&!B
 const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
-$('#app').innerHTML=VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 07.11-31';
+$('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
+const VER='версия 07.11-32';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
