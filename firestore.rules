@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Владелец — вход через Google с этой почтой
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'asyl.m.kz@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // Вход по ссылке: устройство привязано к ссылке (bind/{uid} -> t),
+    // ссылка включена и ведёт в эту папку
+    function linkOk(type, f) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/bind/$(request.auth.uid))
+        && linkFits(get(/databases/$(database)/documents/bind/$(request.auth.uid)).data.t, type, f);
+    }
+    function linkFits(t, type, f) {
+      let l = get(/databases/$(database)/documents/links/$(t)).data;
+      return l.on == true && l.type == type && l.f == f;
+    }
+
+    // Владельцу доступно всё
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+
+    // Ссылку можно прочитать, только зная её код целиком (списка ссылок не видно)
+    match /links/{t} {
+      allow get: if request.auth != null;
+    }
+
+    // Привязка своего устройства к действующей ссылке
+    match /bind/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['t', 'at'])
+        && get(/databases/$(database)/documents/links/$(request.resource.data.t)).data.on == true;
+    }
+
+    // Строитель — только своя папка заявок
+    match /zayavki/{f}/{rest=**} {
+      allow read, write: if linkOk('b', f);
+    }
+
+    // Поставщик — только заявки, отправленные ему
+    match /sup/{f}/{rest=**} {
+      allow read, write: if linkOk('s', f);
+    }
+  }
+}
