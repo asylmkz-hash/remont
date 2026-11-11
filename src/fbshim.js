@@ -147,15 +147,16 @@ var sample={json:function(prompt,opt){opt=opt||{};var k=OFFAPI.key();
    return jsonFrom((j.content||[]).map(function(x){return x.text||''}).join(''))})})}};
 
 /* ---------- распознавание через Gemini (Firebase AI Logic, бесплатный уровень) ---------- */
-var GM=['gemini-3.8-flash','gemini-2.5-flash'],AIX=null;
-function gemModel(name){if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
+var GM=['gemini-3.8-flash','gemini-2.5-flash'],AIX=null,ACK=null,RCK='6LeKPRsuAAAAAB1xrZpXFUbMUtDKBs2qWQ1ekIlq';
+function gemModel(name){if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');if(!ACK&&F.initializeAppCheck){try{ACK=F.initializeAppCheck(app,{provider:new F.ReCaptchaEnterpriseProvider(RCK),isTokenAutoRefreshEnabled:true})}catch(e){ACK=1}}if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
 var gemini={json:function(prompt,opt){opt=opt||{};return Promise.all((opt.images||[]).map(shrink)).then(function(ims){
  if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');
  var parts=[{text:prompt+'\n\nОтветь только JSON, без пояснений.'}].concat(ims.filter(Boolean).map(function(d){return{inlineData:{data:d,mimeType:'image/jpeg'}}}));
  function tryM(k){return gemModel(GM[k]).generateContent(parts).then(function(res){return jsonFrom(res.response.text())},function(e){var m=String((e&&(e.message||e.code))||'');
   if(k+1<GM.length&&/not.?found|404|not supported|unsupported|invalid model/i.test(m))return tryM(k+1);
-  if(/429|quota|RESOURCE_EXHAUSTED|rate/i.test(m)){var x=new Error('лимит бесплатных распознаваний — попробуйте через минуту');x.code='rate_limited';throw x}
-  if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|firebasevertexai|PERMISSION_DENIED|403|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
+  if(/\b429\b|quota|RESOURCE_EXHAUSTED/i.test(m)){var x=new Error('лимит бесплатных распознаваний — попробуйте через минуту');x.code='rate_limited';throw x}
+  if(/App Check|appCheck|\b401\b/i.test(m))throw new Error('не пройдена проверка безопасности Google (App Check) — обновите страницу и повторите');
+  if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|PERMISSION_DENIED|\b403\b|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
   throw e})}
  return tryM(0)})}};
 window.claude={use:function(n){return ready.then(function(){

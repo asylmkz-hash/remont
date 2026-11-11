@@ -16,7 +16,7 @@ nav a{flex:1;text-align:center;padding:14px 2px;font-size:11.5px;color:var(--m)}
 .tag{font-size:12px;padding:2px 8px;border-radius:9px;background:var(--l)}.two{display:grid;grid-template-columns:2fr 1fr;gap:6px}
 h2{margin:8px 0}h3{margin:16px 0 4px}summary{cursor:pointer}a{cursor:pointer}
 </style></head><body><div id="app"></div>
-<script src="fbsdk.js?h=c3469d56"></script>
+<script src="fbsdk.js?h=40b358c0"></script>
 <script>
 /* Общая база: Firebase (Firestore + вход). Тот же API, что и в версии на claude.ai */
 (function(){
@@ -167,15 +167,16 @@ var sample={json:function(prompt,opt){opt=opt||{};var k=OFFAPI.key();
    return jsonFrom((j.content||[]).map(function(x){return x.text||''}).join(''))})})}};
 
 /* ---------- распознавание через Gemini (Firebase AI Logic, бесплатный уровень) ---------- */
-var GM=['gemini-3.8-flash','gemini-2.5-flash'],AIX=null;
-function gemModel(name){if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
+var GM=['gemini-3.8-flash','gemini-2.5-flash'],AIX=null,ACK=null,RCK='6LeKPRsuAAAAAB1xrZpXFUbMUtDKBs2qWQ1ekIlq';
+function gemModel(name){if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');if(!ACK&&F.initializeAppCheck){try{ACK=F.initializeAppCheck(app,{provider:new F.ReCaptchaEnterpriseProvider(RCK),isTokenAutoRefreshEnabled:true})}catch(e){ACK=1}}if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
 var gemini={json:function(prompt,opt){opt=opt||{};return Promise.all((opt.images||[]).map(shrink)).then(function(ims){
  if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');
  var parts=[{text:prompt+'\n\nОтветь только JSON, без пояснений.'}].concat(ims.filter(Boolean).map(function(d){return{inlineData:{data:d,mimeType:'image/jpeg'}}}));
  function tryM(k){return gemModel(GM[k]).generateContent(parts).then(function(res){return jsonFrom(res.response.text())},function(e){var m=String((e&&(e.message||e.code))||'');
   if(k+1<GM.length&&/not.?found|404|not supported|unsupported|invalid model/i.test(m))return tryM(k+1);
-  if(/429|quota|RESOURCE_EXHAUSTED|rate/i.test(m)){var x=new Error('лимит бесплатных распознаваний — попробуйте через минуту');x.code='rate_limited';throw x}
-  if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|firebasevertexai|PERMISSION_DENIED|403|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
+  if(/\b429\b|quota|RESOURCE_EXHAUSTED/i.test(m)){var x=new Error('лимит бесплатных распознаваний — попробуйте через минуту');x.code='rate_limited';throw x}
+  if(/App Check|appCheck|\b401\b/i.test(m))throw new Error('не пройдена проверка безопасности Google (App Check) — обновите страницу и повторите');
+  if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|PERMISSION_DENIED|\b403\b|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
   throw e})}
  return tryM(0)})}};
 window.claude={use:function(n){return ready.then(function(){
@@ -605,7 +606,7 @@ const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 11.11-37';
+const VER='версия 11.11-38';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
