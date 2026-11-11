@@ -148,8 +148,9 @@ var sample={json:function(prompt,opt){opt=opt||{};var k=OFFAPI.key();
 
 /* ---------- распознавание через Gemini (Firebase AI Logic, бесплатный уровень) ---------- */
 var GM=['gemini-3.8-flash','gemini-2.5-flash'],AIX=null;
-function gemModel(name){if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
+function gemModel(name){if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');if(!AIX)AIX=F.getAI(app,{backend:new F.GoogleAIBackend()});return F.getGenerativeModel(AIX,{model:name,generationConfig:{responseMimeType:'application/json',temperature:0}})}
 var gemini={json:function(prompt,opt){opt=opt||{};return Promise.all((opt.images||[]).map(shrink)).then(function(ims){
+ if(!F.getAI||!F.GoogleAIBackend)throw new Error('приложение обновилось — закройте и откройте его заново');
  var parts=[{text:prompt+'\n\nОтветь только JSON, без пояснений.'}].concat(ims.filter(Boolean).map(function(d){return{inlineData:{data:d,mimeType:'image/jpeg'}}}));
  function tryM(k){return gemModel(GM[k]).generateContent(parts).then(function(res){return jsonFrom(res.response.text())},function(e){var m=String((e&&(e.message||e.code))||'');
   if(k+1<GM.length&&/not.?found|404|not supported|unsupported|invalid model/i.test(m))return tryM(k+1);
