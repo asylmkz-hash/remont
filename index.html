@@ -178,7 +178,7 @@ var gemini={json:function(prompt,opt){opt=opt||{};return Promise.all((opt.images
   if(/App Check|appCheck|\b401\b/i.test(m))throw new Error('не пройдена проверка безопасности Google (App Check) — обновите страницу и повторите');
   if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|PERMISSION_DENIED|\b403\b|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
   throw e})}
- return tryM(0)})}};
+ return Promise.race([tryM(0),new Promise(function(_,no){setTimeout(function(){no(new Error('распознавание не ответило за 60 секунд — проверьте интернет и повторите'))},60000)})])})}};
 window.claude={use:function(n){return ready.then(function(){
  if(n=='db')return db;
  if(n=='user')return{id:function(){return Promise.resolve(ME)},isOwner:function(){return Promise.resolve(ROLE=='o')},search:function(){return Promise.resolve([])}};
@@ -606,7 +606,7 @@ const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 11.11-38';
+const VER='версия 11.11-39';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}

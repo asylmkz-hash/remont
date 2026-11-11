@@ -158,7 +158,7 @@ var gemini={json:function(prompt,opt){opt=opt||{};return Promise.all((opt.images
   if(/App Check|appCheck|\b401\b/i.test(m))throw new Error('не пройдена проверка безопасности Google (App Check) — обновите страницу и повторите');
   if(/api-not-enabled|not been used|is disabled|SERVICE_DISABLED|PERMISSION_DENIED|\b403\b|API key/i.test(m))throw new Error('распознавание не включено в Firebase (AI Logic → Gemini Developer API)');
   throw e})}
- return tryM(0)})}};
+ return Promise.race([tryM(0),new Promise(function(_,no){setTimeout(function(){no(new Error('распознавание не ответило за 60 секунд — проверьте интернет и повторите'))},60000)})])})}};
 window.claude={use:function(n){return ready.then(function(){
  if(n=='db')return db;
  if(n=='user')return{id:function(){return Promise.resolve(ME)},isOwner:function(){return Promise.resolve(ROLE=='o')},search:function(){return Promise.resolve([])}};
