@@ -41,6 +41,9 @@ function go(role,me,info){if(done)return;done=true;ROLE=role;ME=me;INFO=info||{}
 window.FBX={site:location.origin+location.pathname.replace(/index\.html$/,''),
  get name(){return INFO.name||''},get email(){return INFO.email||''},
  signOut:function(){F.signOut(auth).then(function(){location.reload()})},
+ driveToken:function(){var u=auth.currentUser;if(!u||u.isAnonymous)return Promise.reject(new Error('войдите как владелец'));var p=new F.GoogleAuthProvider();p.addScope('https://www.googleapis.com/auth/drive.file');p.setCustomParameters({login_hint:u.email||''});
+  return (F.reauthenticateWithPopup?F.reauthenticateWithPopup(u,p):F.signInWithPopup(auth,p)).then(function(r){var c=F.GoogleAuthProvider.credentialFromResult(r);if(!c||!c.accessToken)throw new Error('Google не дал доступ к Диску');return c.accessToken},function(e){
+   if(e&&/user-mismatch/.test(e.code||''))throw new Error('выберите тот же Google-аккаунт, которым входите в приложение');if(e&&/popup-closed|cancelled-popup/.test(e.code||''))throw new Error('окно Google закрыто — нажмите ещё раз');if(e&&/popup-blocked/.test(e.code||''))throw new Error('браузер заблокировал окно Google — разрешите всплывающие окна');throw e})},
  check:function(){var t0=Date.now(),out={};return withTimeout(F.setDoc(F.doc(fs,'meta/ping'),{at:t0,by:INFO.email||ROLE||''}),15000)
   .then(function(){out.write=Date.now()-t0;return withTimeout(F.getDocsFromServer(F.collection(fs,'objects')),15000)})
   .then(function(q){out.objects=q.size;return withTimeout(F.getDocsFromServer(F.collection(fs,'expenses')),15000)})
