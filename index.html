@@ -772,9 +772,9 @@ async function pasXls(id){const o=S.obj.concat(S.trash||[]).find(x=>x.id==id);if
   await dlSave('Паспорт_'+String(o.name).replace(/[\\/:*?"<>|]/g,'')+'.xlsx',XLSX.write(wb,{bookType:'xlsx',type:'array'}))}catch(e){toast('Не получилось: '+((e&&e.message)||'ошибка'))}}
 
 /* ===== копирование паспорта из другого объекта ===== */
-const PCG={A:['Параметры объекта: адрес, ЖК, площади, комнаты, дом, отделка (кроме кадастрового номера, РКА, этажа)',PF[0][1].map(f=>f[0]).filter(k=>!['kad','rka','flr','cond1','enc'].includes(k))],
- B:['Покупка: продавец, на кого оформлено, нотариус, способ оплаты',['b_sel','b_seli','b_buy','b_buyi','b_not','b_pay']],
- S:['Продажа: продавец, нотариус, способ оплаты',['s_sel','s_seli','s_not','s_pay']]};
+const PCG={A:['Объект: адрес, ЖК, кадастровый номер, РКА, этаж, площади, комнаты, дом, состояние',PF[0][1].map(f=>f[0])],
+ B:['Покупка: продавец, на кого оформлено, номер и дата договора, нотариус, регистрация, оплата',PF[1][1].map(f=>f[0])],
+ S:['Продажа: продавец, покупатель, номер и дата договора, нотариус, регистрация, оплата',PF[2][1].map(f=>f[0])]};
 function pcUI(id){const src=S.obj.filter(o=>o.id!=id&&Object.keys(o.pas||{}).some(k=>PFL.some(f=>f[0]==k)&&String(o.pas[k]).trim()));
  if(!src.length)return '';if(!B['pc'+id])return `<button class=g style="margin:8px 0" onclick="B['pc${id}']=1;draw()">⧉ Скопировать данные из другого объекта</button>`;
  const sel=src.some(o=>o.id==B.pcs)?B.pcs:src[0].id,ch=k=>B['pc'+k]==null?k=='A':!!B['pc'+k];
@@ -785,7 +785,8 @@ function pcopy(id,btn){const box=btn.closest('.card'),sid=box.querySelector('sel
  if(!ks.length){toast('Отметьте, что копировать');return}const S0=pget(sid),P=pget(id);let n=0;
  ks.forEach(g=>PCG[g][1].forEach(k=>{const v=String(S0[k]||'').trim();if(v&&(over||!String(P[k]||'').trim())&&P[k]!==v){P[k]=v;n++}}));
  B['pc'+id]=0;if(!n){toast('Нечего копировать: нужные поля уже заполнены');draw();return}pput(id,P);
- toast('Скопировано полей: '+n+(ks.includes('A')&&S0.adr?'. Проверьте номер квартиры в адресе':''))}
+ const d=dget(id);[['b_cd','bd'],['s_cd','sd']].forEach(([a,b])=>{if(okD(P[a])&&!d[b]&&ks.includes(a[0]=='b'?'B':'S'))dset(id,b,P[a])});
+ toast('Скопировано полей: '+n+'. Исправьте, что отличается: номер квартиры, кадастровый номер, РКА, этаж, договоры')}
 
 /* ===== автозаполнение паспорта ===== */
 const PIIN=new Set(['b_seli','b_buyi','s_seli','s_buyi']),PIP={b_sel:'b_seli',b_buy:'b_buyi',s_sel:'s_seli',s_buy:'s_buyi'},
@@ -848,7 +849,7 @@ const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw();try{scrollTo(0,0)}catch(e){}"><span class=ni>${NI[x[0]]||''}</span>${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 26.11-48';
+const VER='версия 26.11-49';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
