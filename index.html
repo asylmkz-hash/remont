@@ -15,6 +15,7 @@ nav a{flex:1;text-align:center;padding:14px 2px;font-size:11.5px;color:var(--m)}
 .bad{color:var(--r)}.ok{color:#2b8a3e}@media(prefers-color-scheme:dark){.ok{color:#5fd08a}}.m,small{color:var(--m)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .tag{font-size:12px;padding:2px 8px;border-radius:9px;background:var(--l)}.two{display:grid;grid-template-columns:2fr 1fr;gap:6px}
 h2{margin:8px 0}h3{margin:16px 0 4px}summary{cursor:pointer}a{cursor:pointer}
+.dtw{display:flex;gap:6px;align-items:center;position:relative;min-width:0}.dtw>input[type=text]{flex:1;min-width:0}.dtw>.dtb{width:auto;flex:none;padding:8px 9px;margin:4px 0;line-height:1}.dtw>input[type=date]{position:absolute;right:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;padding:0;margin:0;border:0}
 </style></head><body><div id="app"></div>
 <script src="fbsdk.js?h=40b358c0"></script>
 <script>
@@ -739,7 +740,7 @@ const PQ={},PF=[
  pasLine=P=>{const a=[P.adr,P.kad?'кад. № '+P.kad:'',P.b_cn?'дог. покупки № '+P.b_cn+(P.b_cd?' от '+rdt(P.b_cd):''):'',P.s_cn?'дог. продажи № '+P.s_cn+(P.s_cd?' от '+rdt(P.s_cd):''):'',P.s_buy?'покупатель '+P.s_buy+(P.s_buyi?' (ИИН/БИН '+P.s_buyi+')':''):''].filter(Boolean);return a.length?E(a.join(' · '))+'<br>':''};
 function pget(id){const o=S.obj.concat(S.trash||[]).find(x=>x.id==id);return JSON.parse(JSON.stringify(PQ[id]||(o&&o.pas)||{}))}
 function pput(id,p){PQ[id]=p;Promise.resolve(col('objects').doc(id).update({pas:p})).then(()=>{setTimeout(()=>{if(PQ[id]===p)delete PQ[id]},1500)},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')));draw()}
-function pset(id,k,v){const p=pget(id);p[k]=String(v).trim();pput(id,p);
+function pset(id,k,v){const p=pget(id);p[k]=String(v).trim();const pm=pAuto(p,k,id);pput(id,p);if(pm)toast(pm);
  if((k=='b_cd'||k=='s_cd')&&p[k]){const dk=k=='b_cd'?'bd':'sd';if(!dget(id)[dk]){dset(id,dk,p[k]);toast('Дата договора записана и в «Сделку»')}}}
 function pla(id,L,x){const p=pget(id);p[L]=(p[L]||[]).concat(x);pput(id,p)}
 function ple(id,L,k,f,v){const p=pget(id);if(!(p[L]||[])[k])return;p[L][k][f]=String(v).trim();pput(id,p)}
@@ -747,15 +748,15 @@ function plx(id,L,k){const p=pget(id);(p[L]||[]).splice(k,1);pput(id,p)}
 function pasUI(o){if(!own)return '';const id=o.id,k='ps'+id,op=!!B[k],P=pget(id),d=dd(o),st=d.st||'an',miss=pMiss(P,st),n=PFL.filter(f=>String(P[f[0]]||'').trim()).length;
  let h=`<details data-d="${k}" ${op?'open data-l=1':''} ontoggle="tgl(this)" style="margin:8px 0"><summary class=card style="margin:0;cursor:pointer">📋 <b>Паспорт объекта</b> · заполнено ${n} из ${PFL.length}${miss.length?` · <span class=bad>для декларации не хватает ${miss.length}</span>`:n?' · для декларации всё есть':''}</summary>`;
  if(!op)return h+'</details>';
- const c=d.bp||d.sp?dealCalc(o):null,inp=f=>{const[key,l,t]=f,ph=key=='s_sel'?P.b_buy:key=='s_seli'?P.b_buyi:'';return `<label style="display:block;${PW.has(key)?'grid-column:1/-1':''}"><small class=m>${l}${miss.includes(l)?' <span class=bad>*</span>':''}</small><input ${t=='d'?'type=date':t=='n'?'type=text inputmode=decimal':'type=text'} value="${E(P[key]||'')}" placeholder="${E(ph?'как в покупке: '+ph:'')}" onchange="pset('${id}','${key}',this.value)"></label>`};
- h+=`<div class=card style="margin:4px 0"><small class=m>Все данные объекта для учёта и налоговой декларации. Видите только вы. Поля со <span class=bad>*</span> нужны для декларации.</small>`+pcUI(id);
+ const c=d.bp||d.sp?dealCalc(o):null,inp=f=>{const[key,l,t]=f,ph=key=='s_sel'?P.b_buy:key=='s_seli'?P.b_buyi:'';return `<label style="display:block;${PW.has(key)?'grid-column:1/-1':''}"><small class=m>${l}${miss.includes(l)?' <span class=bad>*</span>':''}</small><input ${t=='d'?'type=date':t=='n'?'type=text inputmode=decimal':PIIN.has(key)?'type=text inputmode=numeric maxlength=14':'type=text'} ${PLK[key]?`list=pl_${PLK[key]} autocomplete=off`:''} value="${E(P[key]||'')}" placeholder="${E(ph?'как в покупке: '+ph:PIIN.has(key)?'12 цифр':'')}" onchange="pset('${id}','${key}',this.value)"></label>`};
+ h+=`<div class=card style="margin:4px 0"><small class=m>Все данные объекта для учёта и налоговой декларации. Видите только вы. Поля со <span class=bad>*</span> нужны для декларации. Начните вводить — появятся подсказки из базы.</small>`+pDL()+pcUI(id);
  PF.forEach(([t,fs],i)=>{h+=`<div style="margin-top:12px"><b>${t}</b></div>`;
   if(i==1&&c)h+=`<small class=m>Сумма по договору: <b>${F(c.bpc)} ₸</b>, фактически: ${F(c.bp)} ₸ (меняется в «Сделке»)</small>`;
   if(i==2&&c)h+=`<small class=m>${st=='sold'?'Сумма по договору: <b>'+F(c.spc)+' ₸</b>, фактически: '+F(c.sp)+' ₸ (меняется в «Сделке»)':'Объект ещё не продан — заполните после продажи.'}</small>`;
   h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 8px">${fs.map(inp).join('')}</div>`});
- h+=`<div style="margin-top:12px"><b>История объекта</b></div><small class=m>Ключевые события от покупки до продажи.</small>`+(P.ev||[]).map((x,j)=>`<div style="display:grid;grid-template-columns:132px 1fr 18px;gap:6px;align-items:center"><input type=date value="${E(x.d||'')}" onchange="ple('${id}','ev',${j},'d',this.value)"><input value="${E(x.t||'')}" placeholder="Что произошло" onchange="ple('${id}','ev',${j},'t',this.value)"><a onclick="plx('${id}','ev',${j})">✕</a></div>`).join('')+
+ h+=`<div style="margin-top:12px"><b>История объекта</b></div><small class=m>Ключевые события от покупки до продажи.</small>`+(P.ev||[]).map((x,j)=>`<div style="display:grid;grid-template-columns:150px 1fr 18px;gap:6px;align-items:center"><input type=date value="${E(x.d||'')}" onchange="ple('${id}','ev',${j},'d',this.value)"><input list=pl_ev autocomplete=off value="${E(x.t||'')}" placeholder="Что произошло" onchange="ple('${id}','ev',${j},'t',this.value)"><a onclick="plx('${id}','ev',${j})">✕</a></div>`).join('')+
   `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px">${['Получены ключи','Начало ремонта','Окончание ремонта','Выставлен на продажу','Получен задаток','Переданы ключи'].map(t=>`<a class=tag onclick="pla('${id}','ev',{d:'${T()}',t:'${t}'})">+ ${t}</a>`).join('')}<a class=tag onclick="pla('${id}','ev',{d:'${T()}',t:''})">+ другое</a></div>`;
- h+=`<div style="margin-top:8px"><b>Документы</b></div><small class=m>Название и ссылка на скан (например, на Google Диске).</small>`+(P.doc||[]).map((x,j)=>`<div style="display:grid;grid-template-columns:1fr 1fr 18px;gap:6px;align-items:center"><input value="${E(x.n||'')}" placeholder="Документ" onchange="ple('${id}','doc',${j},'n',this.value)"><input type=url value="${E(x.u||'')}" placeholder="https://…" onchange="ple('${id}','doc',${j},'u',this.value)"><a onclick="plx('${id}','doc',${j})">✕</a></div>${/^https?:\/\//.test(x.u||'')?`<small><a href="${E(x.u)}" target=_blank rel=noopener>открыть «${E(x.n||'документ')}»</a></small>`:''}`).join('')+
+ h+=`<div style="margin-top:8px"><b>Документы</b></div><small class=m>Название и ссылка на скан (например, на Google Диске).</small>`+(P.doc||[]).map((x,j)=>`<div style="display:grid;grid-template-columns:1fr 1fr 18px;gap:6px;align-items:center"><input list=pl_doc autocomplete=off value="${E(x.n||'')}" placeholder="Документ" onchange="ple('${id}','doc',${j},'n',this.value)"><input type=url value="${E(x.u||'')}" placeholder="https://…" onchange="ple('${id}','doc',${j},'u',this.value)"><a onclick="plx('${id}','doc',${j})">✕</a></div>${/^https?:\/\//.test(x.u||'')?`<small><a href="${E(x.u)}" target=_blank rel=noopener>открыть «${E(x.n||'документ')}»</a></small>`:''}`).join('')+
   `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px">${['Договор покупки','Техпаспорт','Справка о зарегистрированных правах','Договор продажи','Акт приёма-передачи','Расписка'].map(t=>`<a class=tag onclick="pla('${id}','doc',{n:'${t}',u:''})">+ ${t}</a>`).join('')}<a class=tag onclick="pla('${id}','doc',{n:'',u:''})">+ другое</a></div>`;
  return h+`<button class=g onclick="pasXls('${id}')">⬇ Паспорт объекта в Excel</button></div></details>`}
 async function pasXls(id){const o=S.obj.concat(S.trash||[]).find(x=>x.id==id);if(!o)return;const P=pget(id),d=dd(o),c=d.bp||d.sp?dealCalc(o):null;toast('Готовлю файл…');
@@ -784,11 +785,42 @@ function pcopy(id,btn){const box=btn.closest('.card'),sid=box.querySelector('sel
  B['pc'+id]=0;if(!n){toast('Нечего копировать: нужные поля уже заполнены');draw();return}pput(id,P);
  toast('Скопировано полей: '+n+(ks.includes('A')&&S0.adr?'. Проверьте номер квартиры в адресе':''))}
 
+/* ===== автозаполнение паспорта ===== */
+const PIIN=new Set(['b_seli','b_buyi','s_seli','s_buyi']),PIP={b_sel:'b_seli',b_buy:'b_buyi',s_sel:'s_seli',s_buy:'s_buyi'},
+ PSUG={wall:['Монолит','Кирпич','Панель','Каркасно-монолит','Газоблок'],bath:['Раздельный','Совмещённый','2 санузла'],balc:['Балкон','Лоджия','2 балкона','Нет'],typ:['Квартира','Дом','Коммерческое помещение'],cond:['Черновая','Предчистовая','Чистовая','С ремонтом','Требует ремонта'],park:['Паркинг','Кладовая','Паркинг и кладовая','Нет'],enc:['Нет','Залог банка'],pay:['Наличные','Банк (перевод)','Ипотека','Аккредитив','Наличные + банк'],dist:['Астана, Есильский р-н','Астана, Алматинский р-н','Астана, Сарыаркинский р-н','Астана, Байконурский р-н','Астана, р-н Нура'],ceil:['2,7','2,8','3','3,2'],
+  ev:['Получены ключи','Начало ремонта','Окончание ремонта','Выставлен на продажу','Получен задаток','Переданы ключи','Регистрация права','Оплата продавцу','Получена оплата'],doc:['Договор покупки','Техпаспорт','Справка о зарегистрированных правах','Договор продажи','Акт приёма-передачи','Расписка','Договор задатка','Выписка из банка']},
+ PLK={b_sel:'nm',b_buy:'nm',s_sel:'nm',s_buy:'nm',b_not:'nt',s_not:'nt',b_pay:'pay',s_pay:'pay',cond0:'cond',cond1:'cond',wall:'wall',bath:'bath',balc:'balc',typ:'typ',park:'park',enc:'enc',dist:'dist',zhk:'zhk',ceil:'ceil'},
+ PZK=['dist','typ','fls','yr','wall','ceil'],pAll=()=>S.obj.concat(S.trash||[]).map(o=>pget(o.id)),lc=v=>String(v||'').trim().toLowerCase();
+function pDL(){const all=pAll(),u=(ks,base)=>[...new Set(all.flatMap(P=>ks.map(k=>String(P[k]||'').trim())).filter(Boolean).concat(base||[]))].sort((a,b)=>a.localeCompare(b,'ru')),uL=(L,f,base)=>[...new Set(all.flatMap(P=>(P[L]||[]).map(x=>String(x[f]||'').trim())).filter(Boolean).concat(base))];
+ const L={nm:u(['b_sel','b_buy','s_sel','s_buy']),nt:u(['b_not','s_not']),pay:u(['b_pay','s_pay'],PSUG.pay),cond:u(['cond0','cond1'],PSUG.cond),wall:u(['wall'],PSUG.wall),bath:u(['bath'],PSUG.bath),balc:u(['balc'],PSUG.balc),typ:u(['typ'],PSUG.typ),park:u(['park'],PSUG.park),enc:u(['enc'],PSUG.enc),dist:u(['dist'],PSUG.dist),zhk:u(['zhk']),ceil:u(['ceil'],PSUG.ceil),ev:uL('ev','t',PSUG.ev),doc:uL('doc','n',PSUG.doc)};
+ return Object.entries(L).map(([k,a])=>`<datalist id=pl_${k}>${a.map(v=>`<option value="${E(v)}"></option>`).join('')}</datalist>`).join('')}
+function pAuto(p,k,id){const m=[],all=S.obj.concat(S.trash||[]).filter(o=>o.id!=id).map(o=>pget(o.id));
+ if(PIIN.has(k)&&p[k]){p[k]=p[k].replace(/[\s-]/g,'');if(!/^\d{12}$/.test(p[k]))m.push('Проверьте ИИН/БИН: должно быть 12 цифр')}
+ if(PIP[k]&&p[k]&&!p[PIP[k]]){const n=lc(p[k]);let iin='';all.some(P=>Object.entries(PIP).some(([a,b])=>{if(lc(P[a])==n&&P[b]){iin=P[b];return true}}));if(iin){p[PIP[k]]=iin;m.push('ИИН/БИН подставлен из базы')}}
+ if(k=='zhk'&&p.zhk){const src=all.find(P=>lc(P.zhk)==lc(p.zhk)&&PZK.some(f=>P[f]));if(src){let n=0;PZK.forEach(f=>{if(src[f]&&!String(p[f]||'').trim()){p[f]=src[f];n++}});if(n)m.push('Из ЖК «'+p.zhk+'» подставлено: район, дом, год постройки и др. ('+n+')')}}
+ if(/^s_/.test(k)&&p[k]){let n=0;if(!p.s_sel&&p.b_buy){p.s_sel=p.b_buy;n++}if(!p.s_seli&&p.b_buyi){p.s_seli=p.b_buyi;n++}if(n)m.push('Продавец подставлен из покупки')}
+ return m.join('. ')}
+/* ===== даты: дд.мм.гггг, год по умолчанию текущий ===== */
+const dFmt=v=>/^\d{4}-\d{2}-\d{2}$/.test(v||'')?v.slice(8,10)+'.'+v.slice(5,7)+'.'+v.slice(0,4):'';
+function dParse(t){t=String(t||'').trim();if(!t)return '';let d,m,y=new Date().getFullYear();const p=t.split(/[.\/\-\s,]+/).filter(Boolean);if(!p.length||!p.every(x=>/^\d+$/.test(x)))return null;
+ if(p.length==1){const s=p[0];if(s.length<=2){d=+s;m=new Date().getMonth()+1}else if(s.length==3){if(+s.slice(0,2)<=31&&+s[2]>0){d=+s.slice(0,2);m=+s[2]}else{d=+s[0];m=+s.slice(1)}}else if(s.length==4){d=+s.slice(0,2);m=+s.slice(2)}else if(s.length==6){d=+s.slice(0,2);m=+s.slice(2,4);y=2000+ +s.slice(4)}else if(s.length==8){d=+s.slice(0,2);m=+s.slice(2,4);y=+s.slice(4)}else return null}
+ else if(p.length<=3){d=+p[0];m=+p[1];if(p[2])y=p[2].length<=2?2000+ +p[2]:+p[2]}else return null;
+ const dt=new Date(Date.UTC(y,m-1,d));if(!d||!m||y<1900||y>2100||dt.getUTCMonth()!=m-1||dt.getUTCDate()!=d)return null;return dt.toISOString().slice(0,10)}
+function dMask(el){const v=el.value;if(/[^\d.]/.test(v))return;for(let i=0;i<v.length;i++)if(v[i]=='.'&&i!=2&&i!=5)return;const g=v.replace(/\D/g,'').slice(0,8),f=g.slice(0,2)+(g.length>2?'.'+g.slice(2,4):'')+(g.length>4?'.'+g.slice(4):'');if(f!=v)el.value=f}
+function dEnh(n){if(!n||!n.querySelectorAll)return;(n.matches&&n.matches('input[type=date]')?[n]:[...n.querySelectorAll('input[type=date]')]).forEach(nat=>{if(nat.dataset.dx||!nat.parentNode)return;nat.dataset.dx=1;
+ const w=document.createElement('span'),t=document.createElement('input'),b=document.createElement('button');w.className='dtw';nat.parentNode.insertBefore(w,nat);
+ t.type='text';t.setAttribute('inputmode','numeric');t.placeholder='дд.мм.гггг';t.autocomplete='off';t.value=dFmt(nat.value);t.title=nat.title||'Можно ввести 2511 или 25.11 — год подставится текущий';
+ b.type='button';b.className='g dtb';b.textContent='📅';b.title='Календарь';w.append(t,b,nat);nat.tabIndex=-1;
+ t.addEventListener('input',()=>dMask(t));t.addEventListener('keydown',e=>{if(e.key=='Enter')t.blur()});
+ t.addEventListener('change',()=>{const iso=dParse(t.value);if(iso===null){toast('Дата: день.месяц.год — например 25.11 или 25.11.2026');t.value=dFmt(nat.value);return}t.value=dFmt(iso);if(iso!==nat.value){nat.value=iso;nat.dispatchEvent(new Event('change',{bubbles:true}))}});
+ b.addEventListener('click',()=>{try{nat.showPicker()}catch(e){nat.focus();nat.click()}});nat.addEventListener('change',()=>{t.value=dFmt(nat.value)})})}
+(function dObs(){const go=()=>{try{new MutationObserver(ms=>ms.forEach(x=>x.addedNodes.forEach(dEnh))).observe(document.body,{childList:true,subtree:true});dEnh(document.body)}catch(e){}};document.body?go():document.addEventListener('DOMContentLoaded',go)})();
+
 const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 26.11-45';
+const VER='версия 26.11-46';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
