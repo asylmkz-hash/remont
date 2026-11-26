@@ -853,7 +853,7 @@ async function xSave(bk,name){let ab=XLSXS.write(bk.wb,{bookType:'xlsx',type:'ar
   if(n)x=x.replace(/<sheetView([^>]*?)\/>/,`<sheetView$1><pane ySplit="${n}" topLeftCell="A${n+1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${n+1}" sqref="A${n+1}"/></sheetView>`);
   x=x.replace(/(<pageMargins[^>]*\/>)/,'$1<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>');
   if(!/<sheetPr/.test(x))x=x.replace(/(<worksheet[^>]*>)/,'$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');z.file(p,x)}
-  ab=await z.generateAsync({type:'arraybuffer'})}catch(e){}
+  ab=await z.generateAsync({type:'arraybuffer',compression:'DEFLATE',compressionOptions:{level:6}})}catch(e){}
  return dlSave(name,ab)}
 const xSub=(...a)=>'Выгружено '+rdt(T())+' · '+a.filter(Boolean).join(' · ');
 
@@ -939,7 +939,7 @@ const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw();try{scrollTo(0,0)}catch(e){}"><span class=ni>${NI[x[0]]||''}</span>${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 27.11-50';
+const VER='версия 27.11-51';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
