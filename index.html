@@ -748,7 +748,7 @@ function pasUI(o){if(!own)return '';const id=o.id,k='ps'+id,op=!!B[k],P=pget(id)
  let h=`<details data-d="${k}" ${op?'open data-l=1':''} ontoggle="tgl(this)" style="margin:8px 0"><summary class=card style="margin:0;cursor:pointer">📋 <b>Паспорт объекта</b> · заполнено ${n} из ${PFL.length}${miss.length?` · <span class=bad>для декларации не хватает ${miss.length}</span>`:n?' · для декларации всё есть':''}</summary>`;
  if(!op)return h+'</details>';
  const c=d.bp||d.sp?dealCalc(o):null,inp=f=>{const[key,l,t]=f,ph=key=='s_sel'?P.b_buy:key=='s_seli'?P.b_buyi:'';return `<label style="display:block;${PW.has(key)?'grid-column:1/-1':''}"><small class=m>${l}${miss.includes(l)?' <span class=bad>*</span>':''}</small><input ${t=='d'?'type=date':t=='n'?'type=text inputmode=decimal':'type=text'} value="${E(P[key]||'')}" placeholder="${E(ph?'как в покупке: '+ph:'')}" onchange="pset('${id}','${key}',this.value)"></label>`};
- h+=`<div class=card style="margin:4px 0"><small class=m>Все данные объекта для учёта и налоговой декларации. Видите только вы. Поля со <span class=bad>*</span> нужны для декларации.</small>`;
+ h+=`<div class=card style="margin:4px 0"><small class=m>Все данные объекта для учёта и налоговой декларации. Видите только вы. Поля со <span class=bad>*</span> нужны для декларации.</small>`+pcUI(id);
  PF.forEach(([t,fs],i)=>{h+=`<div style="margin-top:12px"><b>${t}</b></div>`;
   if(i==1&&c)h+=`<small class=m>Сумма по договору: <b>${F(c.bpc)} ₸</b>, фактически: ${F(c.bp)} ₸ (меняется в «Сделке»)</small>`;
   if(i==2&&c)h+=`<small class=m>${st=='sold'?'Сумма по договору: <b>'+F(c.spc)+' ₸</b>, фактически: '+F(c.sp)+' ₸ (меняется в «Сделке»)':'Объект ещё не продан — заполните после продажи.'}</small>`;
@@ -768,11 +768,27 @@ async function pasXls(id){const o=S.obj.concat(S.trash||[]).find(x=>x.id==id);if
   const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(A);ws['!cols']=[{wch:38},{wch:60}];XLSX.utils.book_append_sheet(wb,ws,'Паспорт');
   await dlSave('Паспорт_'+String(o.name).replace(/[\\/:*?"<>|]/g,'')+'.xlsx',XLSX.write(wb,{bookType:'xlsx',type:'array'}))}catch(e){toast('Не получилось: '+((e&&e.message)||'ошибка'))}}
 
+/* ===== копирование паспорта из другого объекта ===== */
+const PCG={A:['Параметры объекта: адрес, ЖК, площади, комнаты, дом, отделка (кроме кадастрового номера, РКА, этажа)',PF[0][1].map(f=>f[0]).filter(k=>!['kad','rka','flr','cond1','enc'].includes(k))],
+ B:['Покупка: продавец, на кого оформлено, нотариус, способ оплаты',['b_sel','b_seli','b_buy','b_buyi','b_not','b_pay']],
+ S:['Продажа: продавец, нотариус, способ оплаты',['s_sel','s_seli','s_not','s_pay']]};
+function pcUI(id){const src=S.obj.filter(o=>o.id!=id&&Object.keys(o.pas||{}).some(k=>PFL.some(f=>f[0]==k)&&String(o.pas[k]).trim()));
+ if(!src.length)return '';if(!B['pc'+id])return `<button class=g style="margin:8px 0" onclick="B['pc${id}']=1;draw()">⧉ Скопировать данные из другого объекта</button>`;
+ const sel=src.some(o=>o.id==B.pcs)?B.pcs:src[0].id,ch=k=>B['pc'+k]==null?k=='A':!!B['pc'+k];
+ return `<div class=card style="padding:8px;margin:8px 0"><b>⧉ Скопировать из объекта</b><select onchange="B.pcs=this.value">${src.map(o=>`<option value=${o.id} ${o.id==sel?'selected':''}>${E(o.name)}${o.pas.area?' · '+E(o.pas.area)+' м²':''}${o.pas.rooms?' · '+E(o.pas.rooms)+'-комн.':''}${o.arch?' (архив)':''}</option>`).join('')}</select>`+
+  Object.entries(PCG).map(([k,[l]])=>`<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type=checkbox style="width:auto;margin-top:2px" ${ch(k)?'checked':''} onchange="B['pc${k}']=this.checked"><small>${l}</small></label>`).join('')+
+  `<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type=checkbox style="width:auto;margin-top:2px" ${B.pcO?'checked':''} onchange="B.pcO=this.checked"><small>Заменять поля, которые уже заполнены (иначе заполняются только пустые)</small></label><div class=two style="grid-template-columns:1fr 1fr"><button onclick="pcopy('${id}',this)">Скопировать</button><button class=g onclick="B['pc${id}']=0;draw()">Отмена</button></div></div>`}
+function pcopy(id,btn){const box=btn.closest('.card'),sid=box.querySelector('select').value,cb=[...box.querySelectorAll('input[type=checkbox]')],ks=Object.keys(PCG).filter((k,i)=>cb[i].checked),over=cb[cb.length-1].checked;
+ if(!ks.length){toast('Отметьте, что копировать');return}const S0=pget(sid),P=pget(id);let n=0;
+ ks.forEach(g=>PCG[g][1].forEach(k=>{const v=String(S0[k]||'').trim();if(v&&(over||!String(P[k]||'').trim())&&P[k]!==v){P[k]=v;n++}}));
+ B['pc'+id]=0;if(!n){toast('Нечего копировать: нужные поля уже заполнены');draw();return}pput(id,P);
+ toast('Скопировано полей: '+n+(ks.includes('A')&&S0.adr?'. Проверьте номер квартиры в адресе':''))}
+
 const VW={home,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
 const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw()">${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 25.11-44';
+const VER='версия 26.11-45';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
