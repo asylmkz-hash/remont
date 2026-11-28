@@ -11,6 +11,7 @@ input,select,button,textarea{font:inherit;padding:10px;border-radius:8px;border:
 button{background:var(--a);color:#fff;border:0;font-weight:600}button.g{background:none;color:var(--m);border:1px solid var(--l)}
 nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--c);border-top:1px solid var(--l);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav a{flex:1;text-align:center;padding:8px 1px 10px;font-size:11px;color:var(--m);cursor:pointer}nav .ni{display:block;font-size:21px;line-height:1.15;margin-bottom:1px}nav a.on{color:var(--a);font-weight:700;box-shadow:inset 0 3px var(--a)}
+nav a{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}@media(max-width:430px){nav a{font-size:9.5px;letter-spacing:-.2px;padding-left:0;padding-right:0}}
 .bar{height:8px;background:var(--l);border-radius:4px;margin:8px 0 4px;overflow:hidden}.bar i{display:block;height:100%}
 .bad{color:var(--r)}.ok{color:#2b8a3e}@media(prefers-color-scheme:dark){.ok{color:#5fd08a}}.m,small{color:var(--m)}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .tag{font-size:12px;padding:2px 8px;border-radius:9px;background:var(--l)}.two{display:grid;grid-template-columns:2fr 1fr;gap:6px}
@@ -786,7 +787,7 @@ function dEnh(n){if(!n||!n.querySelectorAll)return;(n.matches&&n.matches('input[
 (function dObs(){const go=()=>{try{new MutationObserver(ms=>ms.forEach(x=>x.addedNodes.forEach(dEnh))).observe(document.body,{childList:true,subtree:true});dEnh(document.body)}catch(e){}};document.body?go():document.addEventListener('DOMContentLoaded',go)})();
 
 /* ===== аудит 26.11: защита, подсказки, удобство ===== */
-const NI={home:'🏠',req:'📝',exp:'💸',obj:'🏢',sup:'🚚',ppl:'⚙️',sp:'📦'},okD=v=>/^(19|20)\d\d-\d\d-\d\d$/.test(String(v||'')),dCl=d=>{if(okD(d.bd)&&(!d.sd||okD(d.sd)))return d;const x={...d};if(!okD(x.bd))x.bd='';if(x.sd&&!okD(x.sd))x.sd='';return x};
+const NI={home:'🏠',cv:'🚦',req:'📝',exp:'💸',obj:'🏢',sup:'🚚',ppl:'⚙️',sp:'📦'},okD=v=>/^(19|20)\d\d-\d\d-\d\d$/.test(String(v||'')),dCl=d=>{if(okD(d.bd)&&(!d.sd||okD(d.sd)))return d;const x={...d};if(!okD(x.bd))x.bd='';if(x.sd&&!okD(x.sd))x.sd='';return x};
 function stHint(o){if(!own)return '';const d=o.deal||{},st=d.st||'an',t=T(),b=(v,l)=>`<button class=g style="width:auto;padding:6px 10px;margin:4px 0" onclick="event.stopPropagation();dset('${o.id}','st','${v}')">${l}</button>`;
  if(st!='sold'&&okD(d.sd)&&d.sd<=t&&+d.sp)return `<div class=row onclick="event.stopPropagation()"><small class=bad>Дата продажи прошла, а статус не «Продано» — сделка не попадёт в отчёты.</small>${b('sold','✓ Отметить «Продано»')}</div>`;
  if(st=='an'&&okD(d.bd)&&d.bd<=t)return `<div class=row onclick="event.stopPropagation()"><small class=m>Квартира уже куплена?</small>${b('buy','✓ Отметить «Куплено»')}</div>`;return ''}
@@ -976,11 +977,60 @@ function gdBan(){if(!FB||!own||!S.gdL||!gdDue()||!S.obj.length)return '';const a
  return `<div class=card style="border-color:var(--a)"><b>☁ Пора сохранить копию на Google Диск</b><br><small class=m>${a<999?'Последняя копия на Диске — '+a+' дн. назад.':'Копии на Google Диске ещё не было.'} Раз в неделю копия базы кладётся в папку «${GDF}» — отдельно от приложения.</small><button onclick="gdSave()">${B.gdb?'Сохраняю…':'☁ Сохранить на Google Диск'}</button></div>`}
 function gdUI(){const g=S.gd||{},a=gdAgo();return `<div class=card><b>☁ Копия на Google Диске</b><br><small class=m>${g.last?'Последняя: '+rdt(g.last)+(a?' ('+a+' дн. назад)':' (сегодня)')+' · '+g.kb+' КБ · всего копий: '+(g.n||1):'Ещё не сохранялась.'} Раз в неделю приложение напомнит. Копии лежат в папке «${GDF}» на вашем Google Диске; восстановить — скачайте файл и «Восстановить из файла».</small>${g.folder?`<small><a href="https://drive.google.com/drive/folders/${E(g.folder)}" target=_blank rel=noopener>📂 Открыть папку на Диске</a></small>`:''}<button class=g onclick="gdSave()">${B.gdb?'Сохраняю…':'☁ Сохранить на Google Диск сейчас'}</button><small class=m>В первый раз Google спросит разрешение — выберите свой аккаунт и нажмите «Разрешить». Приложение видит только свои файлы на Диске.</small></div>`}
 
-const VW={home,req,exp,obj,sup,ppl};
+// ===== Конвейер: день цикла каждого объекта и отставание от графика (цель — договор с покупателем на 30-й день) =====
+// День 0 — дата покупки (deal.bd). Отметки этапов хранятся в deal.cv = {ключ: 'ГГГГ-ММ-ДД'}.
+const CVT=30,CVG=[['p','Подготовка'],['r','Ремонт'],['f','Мебель'],['s','Продажа'],['c','Деньги']],
+ CVM=[['p1','p','Проверка объекта и офер',-14,-7],['p2','p','Проект, смета, бригада и материалы на Д1',-7,0],
+  ['r1','r','Демонтаж, электрика, сантехника',1,3],['r2','r','Стены, плитка',4,9],['r3','r','Потолки, полы, покраска',10,14],['r4','r','Двери, свет, монтаж мебели',15,19],['r5','r','Клининг и приёмка',20,20],
+  ['f1','f','Мебель заказана по чертежу',0,2],['f2','f','Мебель изготовлена',3,16],
+  ['s1','s','Предпродажа: визуализации, анонс, риелторы',12,12],['s2','s','Фото, видео, размещение везде',21,21],['s3','s','Задаток',22,28],['s4','s','Договор с покупателем',29,30],
+  ['c1','c','Расчёт и раздел прибыли',30,35]],
+ CVC={ok:'#2b8a3e',yel:'#e67700',red:'var(--r)',none:'var(--m)'},CVL={red:0,yel:1,ok:2,none:3},
+ cvAdd=(d,n)=>new Date(Date.parse(d)+n*864e5).toISOString().slice(0,10),cvDM=d=>d?d.slice(8,10)+'.'+d.slice(5,7):'',cvD=n=>'Д'+n;
+function cvCalc(o){const d=dd(o),cv=d.cv||{},st=d.st||'an',bd=okD(d.bd)?d.bd:'',sd=okD(d.sd)?d.sd:'',sold=st=='sold';
+ if(!bd)return{o,st,bd:'',n:null,ms:[],late:[],lag:0,lvl:'none',now:[],next:null,sold,sd,cyc:null};
+ const n=Math.round((Date.parse(T())-Date.parse(bd))/864e5),
+  ms=CVM.map(([k,g,name,s,e])=>({k,g,name,s,e,due:cvAdd(bd,e),done:okD(cv[k])?cv[k]:''}));
+ // этап не считается просроченным, если позже в той же группе уже что-то отмечено (перекрыт), а подготовка — после покупки
+ ms.forEach(m=>{m.skip=!m.done&&(ms.some(x=>x.g==m.g&&x.done&&x.e>m.e)||(m.g=='p'&&n>=0));m.late=!m.done&&!m.skip&&n>m.e?n-m.e:0;m.now=!m.done&&!m.skip&&n>=m.s&&n<=m.e});
+ const late=ms.filter(m=>m.late).sort((a,b)=>b.late-a.late),lag=late.length?late[0].late:0,
+  next=ms.filter(m=>!m.done&&!m.skip&&!m.late).sort((a,b)=>a.e-b.e)[0]||null,
+  cyc=sold&&sd?Math.round((Date.parse(sd)-Date.parse(bd))/864e5):n,
+  lvl=sold?(cyc<=CVT?'ok':'red'):lag>3||n>CVT?'red':lag>0?'yel':'ok';
+ return{o,st,bd,n,ms,late,lag,next,now:ms.filter(m=>m.now),lvl,cyc,sd,sold}}
+function cvSet(id,k,v){if(v&&!okD(v)){toast('Неверная дата — проверьте год');draw();return}dset(id,'cv.'+k,v||'')}
+function cvGrp(id,g){const d=dget(id),t=T();d.cv=d.cv||{};let n=0;CVM.forEach(m=>{if(m[1]==g&&!okD(d.cv[m[0]])){d.cv[m[0]]=t;n++}});if(n){dput(id,d);toast('Отмечено выполненным: '+n)}}
+function cvOpen(id){tab='obj';B['ob'+id]=1;B['dl'+id]=1;draw();try{scrollTo(0,0)}catch(e){}}
+function cvCard(c){const o=c.o,k='cv'+o.id,op=!!B[k],n=c.n,col=CVC[c.lvl],pct=Math.max(0,Math.min(100,n/CVT*100)),
+  day=n<0?'до покупки '+(-n)+' дн.':'день '+n+' из '+CVT,
+  L=c.late[0],more=c.late.length-1,
+  stl=c.lvl=='ok'?`<span class=ok>✓ идёт по графику</span>`:L?`<span class=${c.lvl=='red'?'bad':''} style="${c.lvl=='yel'?'color:#e67700':''}">⚠ отстаёт на ${c.lag} дн.: ${E(L.name)} (срок ${cvD(L.e)}, ${cvDM(L.due)})${more>0?' · ещё просрочено: '+more:''}</span>`:`<span class=bad>⚠ ${CVT} дней прошли, договора нет</span>`,
+  now=c.now.length?'Сейчас по графику: '+c.now.map(m=>E(m.name)).join('; '):'',
+  nx=c.next?'Дальше: '+E(c.next.name)+' — к '+cvD(c.next.e)+' ('+cvDM(c.next.due)+')':'';
+ return `<details class=card style="border-left:6px solid ${col}" data-d="${k}" ontoggle="tgl(this)" ${op?'open data-l=1':''}><summary>${dot(o.id)}<b>${E(o.name)}</b> <span class=tag style="background:${col};color:#fff">${day}${n>CVT?' · +'+(n-CVT):''}</span>
+ <div class=bar style="position:relative"><i style="width:${pct}%;background:${col}"></i></div>
+ <small>${stl}</small>${c.ms.some(m=>m.done)?'':`<br><small class=m>Этапы ещё не отмечены — откройте и отметьте, что уже сделано.</small>`}${now||nx?`<br><small class=m>${[now,nx].filter(Boolean).join(' · ')}</small>`:''}</summary>${op?cvDet(c):''}</details>`}
+function cvDet(c){const id=c.o.id;let h=`<small class=m>День 0 — покупка ${rdt(c.bd)}. Отмечайте этап, когда он готов: «✓ сегодня» или «другая дата». Снять отметку — впишите 0 в дату.</small>`;
+ CVG.forEach(([g,gn])=>{const L=c.ms.filter(m=>m.g==g).sort((a,b)=>a.e-b.e),left=L.filter(m=>!m.done&&!m.skip).length,all=L.every(m=>m.done);
+  h+=`<div class=row style="margin-top:12px"><b>${gn}</b>${left?`<a class=tag onclick="cvGrp('${id}','${g}')">✓ отметить весь этап</a>`:all?'<small class=ok>✓ готово</small>':''}</div>`;
+  h+=L.map(m=>{const ic=m.done?'<span class=ok>✓</span>':m.late?'<span class=bad>⚠</span>':m.skip?'<span class=m>–</span>':m.now?'<span style="color:#e67700">●</span>':'<span class=m>○</span>',
+   sub=(m.s==m.e?cvD(m.e):cvD(m.s)+'…'+cvD(m.e))+' · до '+cvDM(m.due)+(m.late?` · <span class=bad>просрочено на ${m.late} дн.</span>`:m.skip?' · пропущено':'');
+   const dk='cvd'+id+m.k,fld=m.done||B[dk];
+   return `<div style="display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;border-top:1px solid var(--l);padding:6px 0 2px">${ic}<div>${E(m.name)}<br><small class=m>${sub}</small></div><div style="${fld?'width:150px':'text-align:center'}">${fld?`<input type=date value="${E(m.done)}" onchange="cvSet('${id}','${m.k}',this.value)" title="Дата, когда этап готов. 0 — снять отметку">`:`<button class=g style="width:auto;padding:6px 10px;margin:0;font-size:13px" onclick="cvSet('${id}','${m.k}',T())">✓ сегодня</button><br><a class=m style="font-size:12px" onclick="B['${dk}']=1;draw()">другая дата</a>`}</div></div>`}).join('')});
+ return h+`<button class=g style="margin-top:12px" onclick="cvOpen('${id}')">Открыть сделку объекта</button>`}
+function cv(){const A=S.obj.filter(o=>!o.arch&&(dd(o).st||'an')!='sold').map(cvCalc),act=A.filter(c=>c.bd).sort((a,b)=>CVL[a.lvl]-CVL[b.lvl]||b.lag-a.lag||b.n-a.n),nob=A.filter(c=>!c.bd),
+  sold=S.obj.concat().map(cvCalc).filter(c=>c.sold&&c.sd).sort((a,b)=>b.sd.localeCompare(a.sd)),okS=sold.filter(c=>c.cyc>0),avg=okS.length?Math.round(okS.reduce((s,c)=>s+c.cyc,0)/okS.length):null,
+  bad=act.filter(c=>c.lvl!='ok').length,fast=okS.filter(c=>c.cyc<=CVT).length;
+ return `<h2>Конвейер</h2><small class=m>Цель — договор с покупателем на ${CVT}-й день после покупки. День 0 — дата покупки в «Сделке» объекта.</small>
+ <div class=card><div class=row><span>В работе: <b>${act.length}</b></span><span class="${bad?'bad':'ok'}">Отстают: <b>${bad}</b></span><span>Средний цикл продаж: <b>${avg==null?'—':avg+' дн.'}</b></span></div></div>`
+ +(act.length?act.map(cvCard).join(''):`<div class=card><small class=m>Нет объектов в работе с датой покупки.</small></div>`)
+ +(nob.length?`<h3>Без даты покупки</h3><div class=card><small class=m>Укажите дату покупки (или плановую) в «Сделке» — начнётся отсчёт дней.</small>${nob.map(c=>`<div class=row>${dot(c.o.id)}<span style="flex:1">${E(c.o.name)}</span><button class=g style="width:auto;padding:6px 10px;margin:0" onclick="cvOpen('${c.o.id}')">Сделка</button></div>`).join('')}</div>`:'')
+ +(sold.length?`<h3>Проданные</h3><div class=card><small class=m>Дней от покупки до продажи. В ${CVT} дней уложились: ${fast} из ${okS.length}.</small>${sold.map(c=>`<div class=row><span style="flex:1">${dot(c.o.id)}${E(c.o.name)}${c.o.arch?' <span class=tag>архив</span>':''}<br><small class=m>${rdt(c.bd)} → ${rdt(c.sd)}</small></span>${c.cyc>0?`<b class="${c.cyc<=CVT?'ok':''}">${c.cyc} дн.</b>`:`<small class=bad style="text-align:right">проверьте даты<br>в «Сделке»</small>`}</div>`).join('')}</div>`:'')}
+const VW={home,cv,req,exp,obj,sup,ppl};
 function draw(){if(!db)return;const a=document.activeElement;if(a&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)&&$('#app').contains(a)){dirty=1;return}dirty=0;
-const t=own?[['home','Сводка'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
+const t=own?[['home','Сводка'],['cv','Конвейер'],['req','Заявки'],['exp','Расходы'],['obj','Объекты'],['sup','Поставщики'],['ppl','Ещё']]:FB&&window.FBROLE=='s'?[['sp','Заявки']]:[['req','Заявки']];
 $('#app').innerHTML=(FB?syncChip():'')+VW[tab]()+(FB&&!own?fbFoot():'')+`<nav>${t.map(x=>`<a class="${x[0]==tab?'on':''}" onclick="tab='${x[0]}';draw();try{scrollTo(0,0)}catch(e){}"><span class=ni>${NI[x[0]]||''}</span>${x[1]}</a>`).join('')}</nav>`}
-const VER='версия 27.11-53';
+const VER='версия 29.11-54';
 const dn=(s,a)=>a.some(x=>x.name==s.name&&x.phone!=s.phone)?s.name+' · '+String(s.cat||s.phone).split(',')[0]:s.name,supsave=L=>{S.sup=L;Promise.resolve(db.doc('meta/sup').set({list:L})).then(()=>{},e=>toast('Не сохранилось: '+((e&&(e.message||e.code))||'ошибка')))},dg=p=>String(p||'').replace(/\D/g,'');
 function supDL(){return `<datalist id=sups>${S.sup.map(s=>`<option value="${E(dn(s,S.sup))}" label="${E((s.cat||'')+' · '+(s.phone||''))}"></option>`).join('')}</datalist>`}
 function supSel(u,i,v){const r=R(u,i),e=S.sup.find(s=>dn(s,S.sup)==v)||S.sup.find(s=>s.name==v);if(e){r.sup=e.name;r.ph=e.phone;toast('Подставлен телефон: '+e.phone)}else r.sup=v;save(u,r)}
